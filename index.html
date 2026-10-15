@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDR SQO Projector &amp; Dial Calculator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Open Sans - Official Trimble Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            trimble: {
+              blue: '#0063a3',
+              blueHover: '#004f83',
+              cyan: '#0086d6',
+              navy: '#0e416c',
+              dark: '#252a2e',
+              gray: '#585c60',
+              lightGray: '#f4f6f8',
+              pale: '#e8f3fb',
+              border: '#d0d7de',
+              yellow: '#fbad26',
+              yellowDark: '#d48806',
+              green: '#1e8a44',
+              greenDark: '#166534',
+              red: '#d9381e'
+            }
+          },
+          fontFamily: {
+            sans: ['"Open Sans"', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Open Sans', sans-serif;
+      color: #252a2e;
+      background-color: #f8fafc;
+      background-image: 
+        linear-gradient(to bottom, rgba(248, 250, 252, 0.95), rgba(232, 243, 251, 0.97)),
+        url('images/construction-bg.jpg');
+      background-size: cover;
+      background-position: center top;
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      background: #0063a3;
+      cursor: pointer;
+    }
+    input[type=range]::-moz-range-thumb {
+      background: #0063a3;
+      cursor: pointer;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f4f6f8;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #d0d7de;
+      border-radius: 4px;
+    }
+    .editable-table-input {
+      transition: all 0.15s ease-in-out;
+    }
+    .editable-table-input:focus {
+      background-color: #ffffff;
+      outline: none;
+      box-shadow: 0 0 0 2px #0063a3;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased flex flex-col justify-between">
+
+  <header class="bg-white/95 backdrop-blur-md border-b border-trimble-border sticky top-0 z-30 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3.5">
+        <!-- Trimble Brand Logo with automatic local fallback -->
+        <img 
+          src="images/trimblelogo.png" 
+          onerror="this.onerror=null; this.src='smbforecast/images/trimblelogo.png';" 
+          alt="Trimble Logo" 
+          class="h-8 w-auto shrink-0"
+        >
+        <div class="hidden sm:block h-6 w-px bg-slate-200"></div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-sm sm:text-base font-bold text-trimble-navy leading-tight">SDR SQO Projector</h1>
+            <span class="text-[10px] uppercase font-extrabold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">SDR Cadence &amp; Dial Engine</span>
+          </div>
+          <p class="text-[11px] text-slate-500 hidden md:block">Daily Dial Calculator, SAO &gt; SQO Waterfall &amp; Multi-Role Benchmarks</p>
+        </div>
+      </div>
+
+      <!-- Header CTAs -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <button id="resetDefaultsBtn" class="px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+          Reset Benchmarks
+        </button>
+        <button id="exportPlanBtn" class="px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors flex items-center space-x-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+          </svg>
+          <span class="hidden sm:inline">Copy SDR 1:1 Plan</span>
+          <span class="sm:hidden">Plan</span>
+        </button>
+        <button id="copyToSheetsBtn" class="px-3 sm:px-3.5 py-1.5 text-xs font-bold text-white bg-trimble-green hover:bg-trimble-greenDark rounded-lg shadow-sm transition-colors flex items-center space-x-1.5">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 7h10v2H7zm0 4h10v2H7zm0 4h7v2H7z"/>
+          </svg>
+          <span class="hidden sm:inline">Google Sheets Export</span>
+          <span class="sm:hidden">Sheets</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
+    <!-- View Switcher Tabs -->
+    <div class="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+      <div class="flex items-center space-x-2">
+        <button id="tabSimulatorBtn" class="px-4 py-2 text-xs font-bold rounded-xl bg-trimble-blue text-white shadow-sm flex items-center space-x-2 transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+          </svg>
+          <span>Dial Calculator &amp; SDR Projector</span>
+        </button>
+        <button id="tabSheetsBtn" class="px-4 py-2 text-xs font-bold rounded-xl bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-xs flex items-center space-x-2 transition-all">
+          <svg class="w-4 h-4 text-trimble-green" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zm-5 8h8v2H8v-2zm0 4h8v2H8v-2z" />
+          </svg>
+          <span>Google Sheets Formulas &amp; Blueprint</span>
+        </button>
+      </div>
+
+      <div class="flex items-start space-x-2">
+        <span class="inline-block w-2 h-2 rounded-full bg-trimble-green animate-pulse mt-1 shrink-0"></span>
+        <div class="text-xs text-slate-500 font-medium leading-tight">
+          <span id="roleHeaderIndicator">Active Role: <strong class="text-slate-800 font-bold">Outbound SDR</strong> (5% Connect &bull; 18% Qual &bull; 70% SQO Conv)</span>
+          <span class="block text-[10px] text-slate-400 mt-0.5">Editable Current Average Matrix &bull; Real-time SAO &gt; SQO Waterfall</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="simulatorView">
+      <div id="statusAlert" class="mb-6 rounded-2xl p-4 sm:p-5 border transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+          <div id="statusIconBg" class="w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm bg-trimble-blue">
+            <span id="statusIcon" class="text-2xl font-bold">📞</span>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span id="statusBadge" class="text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-full bg-blue-100 text-trimble-navy">On Track</span>
+              <span id="statusRepName" class="text-xs font-semibold text-slate-500">Jordan Taylor — 15 Days Left</span>
+            </div>
+            <h2 id="statusHeadline" class="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">Calls Needed: 68 / day to hit SQO Quota</h2>
+          </div>
+        </div>
+        <div class="flex items-center space-x-5 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-200">
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Net SQOs Needed</p>
+            <p id="gapMetric" class="text-lg font-bold text-slate-900">8.5 SQOs</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Calls Needed / Day</p>
+            <p id="dailyDialsMetric" class="text-xl font-black text-trimble-navy">68.0 / day</p>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Calling Days Left</p>
+            <p id="callingDaysMetric" class="text-lg font-bold text-trimble-blue">15 Days</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- LEFT COLUMN: Primary Dial Calculator Inputs -->
+        <div class="lg:col-span-6 space-y-6">
+          
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900 flex items-center space-x-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-trimble-blue inline-block"></span>
+                  <span>Dial Calculator Core Inputs</span>
+                </h3>
+                <p class="text-[11px] text-slate-500 mt-0.5">Parameters driving the SDR calling volume and waterfall</p>
+              </div>
+              <div class="flex space-x-1">
+                <button type="button" id="presetBehindBtn" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-semibold">Deficit Demo</button>
+                <button type="button" id="presetAheadBtn" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-semibold">Ahead Demo</button>
+              </div>
+            </div>
+
+            <!-- SDR Role / Motion Selector Strip -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-slate-700">Select SDR Motion &amp; Benchmarks:</span>
+                <span id="roleBenchmarkBadge" class="text-[10px] font-bold text-trimble-blue bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">Standard Outbound</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" id="btnRoleOutbound" class="p-2 rounded-xl text-xs font-bold border-2 border-trimble-blue bg-trimble-pale text-trimble-navy transition-all shadow-xs flex flex-col items-center">
+                  <span class="flex items-center space-x-1">
+                    <span>🚀 Outbound SDR</span>
+                  </span>
+                  <span class="text-[10px] font-medium text-slate-600 mt-0.5">5% Connect &bull; 18% Qual</span>
+                </button>
+
+                <button type="button" id="btnRoleInbound" class="p-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex flex-col items-center">
+                  <span class="flex items-center space-x-1">
+                    <span>📥 Inbound SDR</span>
+                  </span>
+                  <span class="text-[10px] font-medium text-slate-500 mt-0.5">16% Connect &bull; 36% Qual</span>
+                </button>
+
+                <button type="button" id="btnRoleCustomer" class="p-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex flex-col items-center">
+                  <span class="flex items-center space-x-1">
+                    <span>🏢 Customer SDR</span>
+                  </span>
+                  <span class="text-[10px] font-medium text-slate-500 mt-0.5">11% Connect &bull; 26% Qual</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Rep & Period Selection -->
+            <div class="grid grid-cols-2 gap-3.5">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">SDR Rep Name</label>
+                <input type="text" id="inputRepName" value="Jordan Taylor" class="w-full text-xs sm:text-sm font-semibold rounded-lg border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-trimble-blue focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Average Pipe / Opp ($ ACV)</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2 text-xs font-bold text-slate-400">$</span>
+                  <input type="number" id="inputACV" value="5869" step="100" class="w-full pl-7 text-xs sm:text-sm font-semibold rounded-lg border border-slate-200 px-3 py-2 focus:ring-2 focus:ring-trimble-blue focus:outline-none">
+                </div>
+              </div>
+            </div>
+
+            <!-- Working Days Left (Do NOT include last day of period) -->
+            <div class="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+              <div class="flex items-center justify-between">
+                <label for="inputCallingDaysLeft" class="text-xs font-bold text-amber-950 flex items-center space-x-1.5">
+                  <svg class="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Number of working days left this period to call</span>
+                </label>
+                <span class="text-[10px] font-extrabold uppercase bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded">Calling Days</span>
+              </div>
+              <div>
+                <input type="number" id="inputCallingDaysLeft" min="1" max="120" value="15" class="w-32 text-base font-black text-center rounded-lg border border-amber-300 bg-white px-3 py-1.5 focus:ring-2 focus:ring-trimble-blue text-amber-950 shadow-2xs">
+                <p class="text-xs text-rose-600 font-semibold italic mt-1.5 flex items-center space-x-1">
+                  <svg class="w-3.5 h-3.5 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>do NOT include last day of period</span>
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">SQO Quota for Period</label>
+                <input type="number" id="inputSQOQuota" min="1" step="1" value="16" class="w-full text-center text-sm font-black rounded-lg border border-slate-200 py-1.5 focus:ring-2 focus:ring-trimble-blue text-slate-900 bg-white">
+                <span class="block text-[10px] text-slate-400 mt-1 text-center">Period target</span>
+              </div>
+
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Current SQO Count</label>
+                <input type="number" id="inputCurrentSQOCount" min="0" step="1" value="4" class="w-full text-center text-sm font-black rounded-lg border border-slate-200 py-1.5 focus:ring-2 focus:ring-trimble-blue text-trimble-green bg-white">
+                <span class="block text-[10px] text-slate-400 mt-1 text-center">Logged to date</span>
+              </div>
+
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">SAOs Waiting to Happen</label>
+                <input type="number" id="inputSAOsWaiting" min="0" step="1" value="5" class="w-full text-center text-sm font-black rounded-lg border border-slate-200 py-1.5 focus:ring-2 focus:ring-trimble-blue text-trimble-blue bg-white">
+                <span class="block text-[10px] text-slate-400 mt-1 text-center">Scheduled on calendar</span>
+              </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-4 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800">Conversion Benchmark Rates</span>
+                <span class="text-[10px] text-slate-500 font-mono">Drives Activities / SAO &amp; SQO</span>
+              </div>
+
+              <!-- SAO > SQO Rate Slider & Input -->
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="font-bold text-slate-700">SAO &gt; SQO Rate (SQO Conv Rate)</span>
+                  <div class="flex items-center space-x-1">
+                    <input type="number" id="inputRateSAOtoSQO" min="10" max="100" step="0.5" value="70.0" class="w-16 text-right font-bold text-xs border border-slate-200 rounded px-1.5 py-0.5 text-trimble-blue bg-white">
+                    <span class="font-bold text-xs text-slate-600">%</span>
+                  </div>
+                </div>
+                <input type="range" id="sliderRateSAOtoSQO" min="20" max="100" step="1" value="70" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                  <span>Show &amp; Discovery Qualification</span>
+                  <span id="saoToSqoDesc" class="font-mono text-slate-700">5 pending SAOs &rarr; ~3.5 expected SQOs</span>
+                </div>
+              </div>
+
+              <!-- Engagement Rate Slider & Input -->
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="font-bold text-slate-700">Engagement Rate (Pickups / Dials)</span>
+                  <div class="flex items-center space-x-1">
+                    <input type="number" id="inputRateEngagement" min="0.5" max="40" step="0.1" value="5.0" class="w-16 text-right font-bold text-xs border border-slate-200 rounded px-1.5 py-0.5 text-trimble-blue bg-white">
+                    <span class="font-bold text-xs text-slate-600">%</span>
+                  </div>
+                </div>
+                <input type="range" id="sliderRateEngagement" min="1" max="30" step="0.5" value="5.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                  <span>Outbound Dials to Live Conversations</span>
+                  <span id="engagementDesc" class="font-mono text-slate-700">1 engagement per 20 dials</span>
+                </div>
+              </div>
+
+              <!-- Lead Qualification Rate Slider & Input -->
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="font-bold text-slate-700">Lead Qualification Rate (Engaged &rarr; SAO)</span>
+                  <div class="flex items-center space-x-1">
+                    <input type="number" id="inputRateLeadQual" min="1" max="60" step="0.5" value="18.0" class="w-16 text-right font-bold text-xs border border-slate-200 rounded px-1.5 py-0.5 text-trimble-blue bg-white">
+                    <span class="font-bold text-xs text-slate-600">%</span>
+                  </div>
+                </div>
+                <input type="range" id="sliderRateLeadQual" min="5" max="50" step="0.5" value="18" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                  <span>Conversation to Scheduled Discovery</span>
+                  <span id="leadQualDesc" class="font-mono text-slate-700">~5.6 engagements per SAO</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="lg:col-span-6 space-y-6">
+          
+          <!-- Key Output Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs relative overflow-hidden">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">SQOs Remaining</div>
+              <div id="cardSQOsRemaining" class="text-2xl font-black text-rose-600 mt-1">8.5 Net</div>
+              <div id="cardGrossGap" class="text-[11px] font-semibold text-slate-500 mt-0.5">12.0 Gross &minus; 3.5 Pending</div>
+              <div class="w-1.5 h-full absolute left-0 top-0 bg-rose-500"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs relative overflow-hidden">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Number of Calls / Day</div>
+              <div id="cardCallsPerDay" class="text-2xl font-black text-trimble-navy mt-1">68 / day</div>
+              <div id="cardTotalCalls" class="text-[11px] font-semibold text-slate-500 mt-0.5">1,012 Total Calls Needed</div>
+              <div class="w-1.5 h-full absolute left-0 top-0 bg-trimble-navy"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs relative overflow-hidden">
+              <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Activities / SQO</div>
+              <div id="cardActivitiesPerSQO" class="text-2xl font-black text-trimble-blue mt-1">158.7</div>
+              <div id="cardActivitiesPerSAO" class="text-[11px] font-semibold text-slate-500 mt-0.5">111.1 Calls / SAO</div>
+              <div class="w-1.5 h-full absolute left-0 top-0 bg-trimble-blue"></div>
+            </div>
+          </div>
+
+          <!-- Chart Card -->
+          <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900">Period SQO Goal Waterfall</h3>
+                <p class="text-xs text-slate-500">Current SQO + Expected from Pending SAO + Calls Needed Gap</p>
+              </div>
+              <span id="chartAttainmentPill" class="text-xs font-extrabold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">Pacing: 46.9%</span>
+            </div>
+
+            <div class="relative w-full h-52">
+              <canvas id="sdrChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Mathematical Proof Callout -->
+          <div class="bg-trimble-pale rounded-2xl p-4 border border-trimble-border text-xs text-trimble-dark space-y-2">
+            <div class="font-bold flex items-center space-x-1.5 text-trimble-navy">
+              <svg class="w-4 h-4 text-trimble-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>The Exact Step-by-Step Dial Math Reverse Engineered:</span>
+            </div>
+            <p id="sdrFormulaExplanation" class="text-slate-700 leading-relaxed font-mono text-[11px] bg-white/70 p-3 rounded-xl border border-trimble-border">
+              Calculating reverse dial requirements...
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="mt-8 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Performance Model: Current Average vs. Projected Output</h2>
+            <p class="text-xs text-slate-500">The Current Average numbers below are <strong>fully editable</strong> to simulate different historical run-rates.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="btnSyncCurrentWithProjected" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Sync Benchmarks to Current</span>
+            </button>
+            <span class="text-[11px] font-bold text-trimble-navy bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">Interactive Matrix</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- TABLE 1: Current Average -->
+          <div class="bg-white rounded-2xl border-2 border-slate-300 shadow-xs overflow-hidden flex flex-col justify-between">
+            <div class="p-4 bg-slate-100/80 border-b border-slate-200 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-slate-600 inline-block"></span>
+                <h3 class="font-bold text-sm text-slate-900">Current Average</h3>
+              </div>
+              <span class="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-0.5 rounded-full">Actual Run-Rate</span>
+            </div>
+
+            <div class="p-4 flex-1 overflow-x-auto custom-scrollbar">
+              <table class="w-full text-xs text-left">
+                <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+                  
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-700">Calls/day average</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <input type="number" id="editCurrCallsDay" value="48.0" step="1" min="0" class="editable-table-input w-24 text-right font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded px-2 py-1">
+                        <span class="w-12 text-left pl-1.5 text-slate-500 font-sans text-xs shrink-0">/ day</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-700">Engagement rate</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <input type="number" id="editCurrEngagement" value="5.0" step="0.1" min="0.1" max="100" class="editable-table-input w-24 text-right font-bold text-trimble-blue bg-slate-50 border border-slate-300 rounded px-2 py-1">
+                        <span class="w-12 text-left pl-1.5 text-slate-600 font-sans text-xs shrink-0">%</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-700">Lead qual rate %</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <input type="number" id="editCurrLeadQual" value="18.0" step="0.1" min="0.1" max="100" class="editable-table-input w-24 text-right font-bold text-trimble-blue bg-slate-50 border border-slate-300 rounded px-2 py-1">
+                        <span class="w-12 text-left pl-1.5 text-slate-600 font-sans text-xs shrink-0">%</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Activities/SAO</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblCurrActSAO" class="w-24 text-right font-bold text-slate-800 pr-2">111.1</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">calls</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Activities/SQO</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblCurrActSQO" class="w-24 text-right font-bold text-slate-800 pr-2">158.7</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">calls</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-700">SQO Conv rate (SAO &gt; SQO)</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <input type="number" id="editCurrSQOConv" value="70.0" step="0.5" min="1" max="100" class="editable-table-input w-24 text-right font-bold text-trimble-green bg-slate-50 border border-slate-300 rounded px-2 py-1">
+                        <span class="w-12 text-left pl-1.5 text-slate-600 font-sans text-xs shrink-0">%</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50">
+                    <td class="py-2.5 font-sans font-medium text-slate-700">Avrg Pipe/Opp</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <div class="relative">
+                          <span class="absolute left-2 top-1 text-slate-400 font-sans text-xs">$</span>
+                          <input type="number" id="editCurrAvgPipe" value="5869" step="100" min="0" class="editable-table-input w-24 pl-5 text-right font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded pr-2 py-1">
+                        </div>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">USD</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr class="hover:bg-slate-50/50 bg-slate-50/70">
+                    <td class="py-2.5 font-sans font-bold text-slate-800">Closed Won (Pipe Sourced)</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblCurrClosedWon" class="w-24 text-right font-black text-trimble-navy pr-2">$23,476</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">USD</span>
+                      </div>
+                    </td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+            <div class="p-3 bg-slate-50/80 border-t border-slate-200 text-[10px] text-slate-500 flex justify-between items-center">
+              <span>* Direct inputs drive the historical run-rate projection.</span>
+              <span id="currAttainCallout" class="font-bold text-slate-700">Landing: 10.2 SQOs</span>
+            </div>
+          </div>
+
+          <!-- TABLE 2: Projected Output (Required Pace) -->
+          <div class="bg-white rounded-2xl border-2 border-trimble-blue/40 shadow-xs overflow-hidden flex flex-col justify-between">
+            <div class="p-4 bg-trimble-pale border-b border-trimble-border flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-trimble-blue inline-block"></span>
+                <h3 class="font-bold text-sm text-trimble-navy">Projected Output (Required to Hit Quota)</h3>
+              </div>
+              <span class="text-[10px] font-extrabold text-white bg-trimble-blue px-2.5 py-0.5 rounded-full">Target Pace</span>
+            </div>
+
+            <div class="p-4 flex-1 overflow-x-auto custom-scrollbar">
+              <table class="w-full text-xs text-left">
+                <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Calls/day average (Pace Needed)</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjCallsDay" class="w-24 text-right font-black text-trimble-navy pr-2">67.5</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-500 font-sans text-xs shrink-0">/ day</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Engagement rate</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjEngagement" class="w-24 text-right font-bold text-trimble-blue pr-2">5.0%</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-600 font-sans text-xs shrink-0">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Lead qual rate %</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjLeadQual" class="w-24 text-right font-bold text-trimble-blue pr-2">18.0%</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-600 font-sans text-xs shrink-0">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Activities/SAO</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjActSAO" class="w-24 text-right font-bold text-slate-800 pr-2">111.1</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">calls</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Activities/SQO</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjActSQO" class="w-24 text-right font-bold text-slate-800 pr-2">158.7</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">calls</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">SQO Conv rate (SAO &gt; SQO)</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjSQOConv" class="w-24 text-right font-bold text-trimble-green pr-2">70.0%</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-600 font-sans text-xs shrink-0">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30">
+                    <td class="py-2.5 font-sans font-medium text-slate-600">Avrg Pipe/Opp</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjAvgPipe" class="w-24 text-right font-bold text-slate-900 pr-2">$5,869</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">USD</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-blue-50/30 bg-emerald-50/60">
+                    <td class="py-2.5 font-sans font-bold text-emerald-950">Closed Won (Projected at Quota)</td>
+                    <td class="py-2 text-right">
+                      <div class="flex items-center justify-end">
+                        <span id="tblProjClosedWon" class="w-24 text-right font-black text-trimble-green pr-2">$93,904</span>
+                        <span class="w-12 text-left pl-1.5 text-slate-400 font-sans text-[11px] shrink-0">USD</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="p-3 bg-blue-50/30 border-t border-slate-100 text-[10px] text-slate-500 flex justify-between">
+              <span>* Reverse-engineered for full SQO quota landing.</span>
+              <span id="tblPaceDeltaCallout" class="font-bold text-trimble-navy">+19.5 calls/day shift needed</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div id="sheetsView" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase bg-emerald-100 text-trimble-green">
+              Google Sheets Model
+            </span>
+            <span class="text-xs text-slate-500 font-semibold">Includes =NETWORKDAYS(), SAO&gt;SQO Waterfall &amp; Comparative Models</span>
+          </div>
+          <h2 class="text-lg font-bold text-slate-900 mt-1">SDR SQO Projector &amp; Dial Calculator Google Sheets Blueprint</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Click any cell to inspect its exact formula or copy all rows directly into <code class="font-mono text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">sheets.new</code>.</p>
+        </div>
+
+        <div class="flex items-center space-x-3 shrink-0">
+          <button id="downloadCsvBtn" class="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors flex items-center space-x-1.5">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Download CSV (With Formulas)</span>
+          </button>
+
+          <button id="copySheetDirectBtn" class="px-4 py-2 text-xs font-bold text-white bg-trimble-green hover:bg-trimble-greenDark rounded-xl shadow-xs transition-all flex items-center space-x-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+            </svg>
+            <span>1-Click Copy for Google Sheets</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Calendar & Working Days Setup in Google Sheets -->
+      <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-bold text-slate-800 flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+            <span>Google Sheets Calendar Configuration (=NETWORKDAYS Reference)</span>
+          </span>
+          <span class="text-[10px] text-slate-500 font-mono">Row 4 - Row 8 in Sheet Blueprint</span>
+        </div>
+        <p class="text-slate-600 text-[11px] leading-relaxed">
+          The Google Sheets formula model uses <code class="bg-white px-1 py-0.5 rounded border border-slate-300 font-mono text-emerald-800">=NETWORKDAYS(B4, B5)</code> for elapsed fiscal days (e.g., 4/7/2025 to 10/15/2026 = 398 days) and <code class="bg-white px-1 py-0.5 rounded border border-slate-300 font-mono text-emerald-800">=NETWORKDAYS(B5, B6)-1</code> for remaining calling days to enforce the strict rule: <strong>do NOT include the last day of the period</strong>.
+        </p>
+      </div>
+
+      <!-- Formula Bar Simulator -->
+      <div class="bg-slate-900 text-white rounded-xl p-3 shadow-xs border border-slate-800 flex items-center space-x-3 text-xs font-mono">
+        <div class="flex items-center space-x-2 border-r border-slate-700 pr-3 shrink-0">
+          <span class="text-slate-400 font-semibold">Cell:</span>
+          <span id="formulaCellAddress" class="text-amber-400 font-bold px-2 py-0.5 bg-slate-800 rounded">B26</span>
+        </div>
+        <div class="flex items-center space-x-2 flex-1 overflow-x-auto custom-scrollbar">
+          <span class="text-emerald-400 font-black italic">fx</span>
+          <span id="formulaBarContent" class="text-slate-200 select-all tracking-wide">=ROUNDUP(B25/B8, 0)</span>
+        </div>
+        <div id="formulaExplanationBadge" class="text-[11px] text-slate-400 hidden sm:block shrink-0 border-l border-slate-700 pl-3 font-sans">
+          Total Calls Needed divided by Calling Days Left
+        </div>
+      </div>
+
+      <!-- Spreadsheet Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto custom-scrollbar max-h-[640px]">
+          <table class="w-full border-collapse text-xs text-left" id="sheetsGridTable">
+            <thead class="bg-slate-100 text-slate-600 sticky top-0 z-10 select-none border-b border-slate-200">
+              <tr>
+                <th class="w-12 py-2 px-3 text-center border-r border-slate-200 font-mono text-[11px] text-slate-400 bg-slate-200/70">#</th>
+                <th class="py-2 px-3.5 border-r border-slate-200 font-semibold text-slate-700 min-w-[260px]">A (Parameter / Metric)</th>
+                <th class="py-2 px-3.5 border-r border-slate-200 font-semibold text-slate-700 min-w-[180px]">B (Value / Primary Formula)</th>
+                <th class="py-2 px-3.5 border-r border-slate-200 font-semibold text-slate-700 min-w-[130px]">C (Unit / Rate)</th>
+                <th class="py-2 px-3.5 border-r border-slate-200 font-semibold text-slate-700 min-w-[170px]">D (Calculation Logic)</th>
+                <th class="py-2 px-3.5 font-semibold text-slate-700 min-w-[220px]">E (Operational Guidance)</th>
+              </tr>
+            </thead>
+            <tbody id="sheetsGridBody" class="divide-y divide-slate-100 font-mono text-[11px]">
+              <!-- Populated dynamically via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white/90 backdrop-blur-md py-6 mt-12 text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+      <div>
+        <p class="font-medium text-slate-600">Trimble Revenue Operations &copy; 2026 SDR SQO Projector</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Calibrated against verified Trimble Salesforce SDR conversion benchmarks.</p>
+      </div>
+
+      <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl">
+        <svg class="w-4 h-4 text-trimble-blue shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <span class="text-slate-600">Notice a discrepancy?</span>
+        <a 
+          href="https://mail.google.com/mail/?view=cm&fs=1&to=jenny_troy@trimble.com&su=SDR%20SQO%20Projector%20Feedback" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          class="font-bold text-trimble-blue hover:text-trimble-blueHover hover:underline inline-flex items-center space-x-0.5"
+        >
+          <span>Contact Jenny Troy</span>
+          <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 text-xs font-semibold z-50 flex items-center space-x-2">
+    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    <span id="toastMsg">Action completed!</span>
+  </div>
+
+  <script>
+    let sdrChartInstance = null;
+    let currentRole = 'outbound'; // 'outbound' | 'inbound' | 'customer'
+
+    // Role-specific benchmark profiles
+    const ROLE_PROFILES = {
+      outbound: {
+        title: 'Outbound SDR',
+        badge: 'Standard Outbound',
+        quota: 16,
+        engagement: 5.0,
+        leadQual: 18.0,
+        saoToSqo: 70.0,
+        currentCallsDay: 48.0,
+        summaryText: 'Cold outbound, targeted accounts, list cadence &amp; dial sprints'
+      },
+      inbound: {
+        title: 'Inbound SDR',
+        badge: 'Inbound / Speed-to-Lead',
+        quota: 24,
+        engagement: 16.0,
+        leadQual: 36.0,
+        saoToSqo: 80.0,
+        currentCallsDay: 35.0,
+        summaryText: 'Demo requests, trial signups, fast inbound phone triage'
+      },
+      customer: {
+        title: 'Customer SDR',
+        badge: 'Customer Expansion / Base',
+        quota: 20,
+        engagement: 11.0,
+        leadQual: 26.0,
+        saoToSqo: 75.0,
+        currentCallsDay: 42.0,
+        summaryText: 'Install base expansion, cross-sell/upsell, renewals'
+      }
+    };
+
+    const fmtUSD = (num) => '$' + Math.round(num).toLocaleString('en-US');
+
+    function calculateAndRenderSDR() {
+      // 1. Quota & Rep Inputs
+      const repName = document.getElementById('inputRepName').value || 'Jordan Taylor';
+      const callingDaysLeft = Math.max(1, parseFloat(document.getElementById('inputCallingDaysLeft').value) || 15);
+      const sqoQuota = Math.max(1, parseFloat(document.getElementById('inputSQOQuota').value) || 16);
+      const currentSQOCount = Math.max(0, parseFloat(document.getElementById('inputCurrentSQOCount').value) || 0);
+      const saosWaiting = Math.max(0, parseFloat(document.getElementById('inputSAOsWaiting').value) || 0);
+      const acv = Math.max(500, parseFloat(document.getElementById('inputACV').value) || 5869);
+
+      // 2. Conversion Benchmark Rates (Main Inputs)
+      const rateSAOtoSQO = (parseFloat(document.getElementById('inputRateSAOtoSQO').value) || 70.0) / 100;
+      const rateEngagement = (parseFloat(document.getElementById('inputRateEngagement').value) || 5.0) / 100;
+      const rateLeadQual = (parseFloat(document.getElementById('inputRateLeadQual').value) || 18.0) / 100;
+
+      // Update Slider and helper microcopy
+      document.getElementById('sliderRateSAOtoSQO').value = (rateSAOtoSQO * 100).toFixed(1);
+      document.getElementById('sliderRateEngagement').value = (rateEngagement * 100).toFixed(1);
+      document.getElementById('sliderRateLeadQual').value = (rateLeadQual * 100).toFixed(1);
+
+      const expectedFromWaitingSAOs = saosWaiting * rateSAOtoSQO;
+      document.getElementById('saoToSqoDesc').textContent = `${saosWaiting} waiting SAOs \u2192 ~${expectedFromWaitingSAOs.toFixed(1)} expected SQOs`;
+      document.getElementById('engagementDesc').textContent = `1 engagement per ~${(1 / rateEngagement).toFixed(1)} dials`;
+      document.getElementById('leadQualDesc').textContent = `~${(1 / rateLeadQual).toFixed(1)} engagements per SAO`;
+
+      // Activities per SAO = 1 / (Engagement Rate * Lead Qual Rate)
+      const activitiesPerSAO = 1 / (rateEngagement * rateLeadQual);
+      // Activities per SQO = Activities per SAO / (SAO > SQO Rate)
+      const activitiesPerSQO = activitiesPerSAO / rateSAOtoSQO;
+
+      // SQOs Remaining:
+      const grossGapSQO = Math.max(0, sqoQuota - currentSQOCount);
+      const netSQOsRemaining = Math.max(0, grossGapSQO - expectedFromWaitingSAOs);
+
+      // Number of calls needed to make per day:
+      const totalCallsNeeded = netSQOsRemaining * activitiesPerSQO;
+      const callsNeededPerDay = totalCallsNeeded / callingDaysLeft;
+
+      const editCallsDay = parseFloat(document.getElementById('editCurrCallsDay').value) || 0;
+      const editEngageRate = (parseFloat(document.getElementById('editCurrEngagement').value) || 5.0) / 100;
+      const editLeadQualRate = (parseFloat(document.getElementById('editCurrLeadQual').value) || 18.0) / 100;
+      const editSQOConvRate = (parseFloat(document.getElementById('editCurrSQOConv').value) || 70.0) / 100;
+      const editAvgPipe = parseFloat(document.getElementById('editCurrAvgPipe').value) || acv;
+
+      // Computed activities for Current Average table
+      const currActSAO = 1 / (editEngageRate * editLeadQualRate);
+      const currActSQO = currActSAO / editSQOConvRate;
+      document.getElementById('tblCurrActSAO').textContent = currActSAO.toFixed(1);
+      document.getElementById('tblCurrActSQO').textContent = currActSQO.toFixed(1);
+
+      // Current Closed Won value
+      const currClosedWon = currentSQOCount * editAvgPipe;
+      document.getElementById('tblCurrClosedWon').textContent = fmtUSD(currClosedWon);
+
+      // Run-Rate Projection based on editable Current Average calls/day using Calling Days Left
+      const currFutureSQOs = (editCallsDay * callingDaysLeft) / (currActSQO > 0 ? currActSQO : 1);
+      const projectedTotalSQO = currentSQOCount + expectedFromWaitingSAOs + currFutureSQOs;
+      const attainmentRunRate = ((projectedTotalSQO / sqoQuota) * 100).toFixed(1);
+
+      document.getElementById('currAttainCallout').textContent = `Landing: ${projectedTotalSQO.toFixed(1)} SQOs (${attainmentRunRate}%)`;
+
+      document.getElementById('cardSQOsRemaining').textContent = `${netSQOsRemaining.toFixed(1)} Net`;
+      document.getElementById('cardGrossGap').textContent = `${grossGapSQO.toFixed(1)} Gross \u2212 ${expectedFromWaitingSAOs.toFixed(1)} Pending`;
+      document.getElementById('cardCallsPerDay').textContent = `${Math.ceil(callsNeededPerDay)} / day`;
+      document.getElementById('cardTotalCalls').textContent = `${Math.ceil(totalCallsNeeded)} Total Calls Needed`;
+      document.getElementById('cardActivitiesPerSQO').textContent = activitiesPerSQO.toFixed(1);
+      document.getElementById('cardActivitiesPerSAO').textContent = `${activitiesPerSAO.toFixed(1)} Calls / SAO`;
+
+      // Update Status Header Alert
+      document.getElementById('statusRepName').textContent = `${repName} \u2014 ${callingDaysLeft} Days Left`;
+      document.getElementById('gapMetric').textContent = `${netSQOsRemaining.toFixed(1)} SQOs`;
+      document.getElementById('dailyDialsMetric').textContent = `${Math.ceil(callsNeededPerDay)} / day`;
+      document.getElementById('callingDaysMetric').textContent = `${callingDaysLeft} Days`;
+
+      const statusAlert = document.getElementById('statusAlert');
+      const statusIconBg = document.getElementById('statusIconBg');
+      const statusBadge = document.getElementById('statusBadge');
+      const statusHeadline = document.getElementById('statusHeadline');
+
+      if (parseFloat(attainmentRunRate) >= 100) {
+        statusAlert.className = 'mb-6 rounded-2xl p-4 sm:p-5 border border-emerald-200 bg-emerald-50/70 transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
+        statusIconBg.className = 'w-12 h-12 rounded-xl bg-trimble-green flex items-center justify-center text-white shrink-0 shadow-sm';
+        statusBadge.className = 'text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900';
+        statusBadge.textContent = 'Quota Surpassing Pace';
+        statusHeadline.textContent = `Pacing to ${attainmentRunRate}% of Quota (${projectedTotalSQO.toFixed(1)} SQOs) \u2022 Maintain ~${Math.ceil(callsNeededPerDay)} calls/day`;
+      } else if (parseFloat(attainmentRunRate) >= 80) {
+        statusAlert.className = 'mb-6 rounded-2xl p-4 sm:p-5 border border-amber-200 bg-amber-50/70 transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
+        statusIconBg.className = 'w-12 h-12 rounded-xl bg-trimble-yellowDark flex items-center justify-center text-white shrink-0 shadow-sm';
+        statusBadge.className = 'text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900';
+        statusBadge.textContent = 'Striking Distance (80\u201399%)';
+        statusHeadline.textContent = `Pacing to ${attainmentRunRate}% of Quota \u2022 Shift to ${Math.ceil(callsNeededPerDay)} calls/day to close remaining ${netSQOsRemaining.toFixed(1)} SQO gap`;
+      } else {
+        statusAlert.className = 'mb-6 rounded-2xl p-4 sm:p-5 border border-rose-200 bg-rose-50/70 transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-4';
+        statusIconBg.className = 'w-12 h-12 rounded-xl bg-rose-600 flex items-center justify-center text-white shrink-0 shadow-sm';
+        statusBadge.className = 'text-xs uppercase font-extrabold px-2.5 py-0.5 rounded-full bg-rose-200 text-rose-900';
+        statusBadge.textContent = 'Critical Pace Gap (<80%)';
+        statusHeadline.textContent = `Calls Needed: ${Math.ceil(callsNeededPerDay)} / day across remaining ${callingDaysLeft} days to reach ${sqoQuota} SQO Quota`;
+      }
+
+      document.getElementById('tblProjCallsDay').textContent = callsNeededPerDay.toFixed(1);
+      document.getElementById('tblProjEngagement').textContent = `${(rateEngagement * 100).toFixed(1)}%`;
+      document.getElementById('tblProjLeadQual').textContent = `${(rateLeadQual * 100).toFixed(1)}%`;
+      document.getElementById('tblProjActSAO').textContent = activitiesPerSAO.toFixed(1);
+      document.getElementById('tblProjActSQO').textContent = activitiesPerSQO.toFixed(1);
+      document.getElementById('tblProjSQOConv').textContent = `${(rateSAOtoSQO * 100).toFixed(1)}%`;
+      document.getElementById('tblProjAvgPipe').textContent = fmtUSD(acv);
+      document.getElementById('tblProjClosedWon').textContent = fmtUSD(sqoQuota * acv);
+
+      const deltaCalls = (callsNeededPerDay - editCallsDay).toFixed(1);
+      const deltaText = parseFloat(deltaCalls) > 0 ? `+${deltaCalls} calls/day shift needed` : `${Math.abs(deltaCalls)} calls/day ahead of pace`;
+      document.getElementById('tblPaceDeltaCallout').textContent = deltaText;
+
+      // Mathematical Step-by-Step Proof
+      document.getElementById('sdrFormulaExplanation').innerHTML = `
+        &bull; <strong>1. Remaining SQOs to Source:</strong> Quota (${sqoQuota}) &minus; Current SQOs (${currentSQOCount}) &minus; [Waiting SAOs (${saosWaiting}) &times; ${(rateSAOtoSQO * 100).toFixed(1)}% SQO Conv] = <strong>${netSQOsRemaining.toFixed(1)} Net SQOs</strong><br>
+        &bull; <strong>2. Activities / SAO:</strong> 1 &divide; [${(rateEngagement * 100).toFixed(1)}% Engagement &times; ${(rateLeadQual * 100).toFixed(1)}% Qual] = <strong>${activitiesPerSAO.toFixed(1)} Calls per SAO</strong><br>
+        &bull; <strong>3. Activities / SQO:</strong> ${activitiesPerSAO.toFixed(1)} Act/SAO &divide; ${(rateSAOtoSQO * 100).toFixed(1)}% SAO&gt;SQO Rate = <strong>${activitiesPerSQO.toFixed(1)} Calls per SQO</strong><br>
+        &bull; <strong>4. Total Calls Needed:</strong> ${netSQOsRemaining.toFixed(1)} Net SQOs &times; ${activitiesPerSQO.toFixed(1)} Act/SQO = <strong>${Math.ceil(totalCallsNeeded)} Calls</strong><br>
+        &bull; <strong>5. Number of Calls Needed / Day:</strong> ${Math.ceil(totalCallsNeeded)} Calls &divide; ${callingDaysLeft} Calling Days (excluding last day) = <strong>${callsNeededPerDay.toFixed(1)} calls / day</strong>
+      `;
+
+      updateSdrChart(currentSQOCount, expectedFromWaitingSAOs, netSQOsRemaining, sqoQuota);
+      renderGoogleSheetsGrid();
+    }
+
+    function updateSdrChart(currentSQO, expectedFromPending, gapSQO, quota) {
+      const ctx = document.getElementById('sdrChart');
+      if (!ctx) return;
+
+      if (sdrChartInstance) {
+        sdrChartInstance.destroy();
+      }
+
+      const totalProjected = currentSQO + expectedFromPending;
+      const progressAttainment = ((totalProjected / quota) * 100).toFixed(1);
+
+      sdrChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Current SQOs', 'Pending SAO Yield', 'Net SQO Gap', 'Period SQO Quota'],
+          datasets: [{
+            label: 'SQO Status',
+            data: [currentSQO, expectedFromPending, gapSQO, quota],
+            backgroundColor: [
+              '#1e8a44', // green
+              '#0086d6', // cyan/blue
+              '#d9381e', // red gap
+              '#0e416c'  // navy target
+            ],
+            borderRadius: 8,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return ' ' + context.parsed.y.toFixed(1) + ' SQOs';
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 2, font: { family: 'Open Sans', size: 10 } },
+              grid: { color: '#f1f5f9' }
+            },
+            x: {
+              ticks: { font: { family: 'Open Sans', size: 11, weight: '600' } },
+              grid: { display: false }
+            }
+          }
+        }
+      });
+
+      const pill = document.getElementById('chartAttainmentPill');
+      if (pill) {
+        pill.textContent = `Secured/Pending: ${progressAttainment}% of Quota`;
+        pill.className = parseFloat(progressAttainment) >= 100
+          ? 'text-xs font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800'
+          : (parseFloat(progressAttainment) >= 80 
+             ? 'text-xs font-extrabold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800'
+             : 'text-xs font-extrabold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800');
+      }
+    }
+
+    function getGoogleSheetsModel() {
+      const repName = document.getElementById('inputRepName').value || 'Jordan Taylor';
+      const callingDays = parseFloat(document.getElementById('inputCallingDaysLeft').value) || 15;
+      const rateSAOtoSQO = (parseFloat(document.getElementById('inputRateSAOtoSQO').value) || 70.0) / 100;
+      const rateEngagement = (parseFloat(document.getElementById('inputRateEngagement').value) || 5.0) / 100;
+      const rateLeadQual = (parseFloat(document.getElementById('inputRateLeadQual').value) || 18.0) / 100;
+      const sqoQuota = parseFloat(document.getElementById('inputSQOQuota').value) || 16;
+      const currentSQOs = parseFloat(document.getElementById('inputCurrentSQOCount').value) || 4;
+      const saosWaiting = parseFloat(document.getElementById('inputSAOsWaiting').value) || 5;
+      const acv = parseFloat(document.getElementById('inputACV').value) || 5869;
+
+      const editCallsDay = parseFloat(document.getElementById('editCurrCallsDay').value) || 48.0;
+
+      return [
+        { row: 1, type: 'header', a: `TRIMBLE SDR SQO PROJECTOR & DIAL MODEL - ${ROLE_PROFILES[currentRole].title.toUpperCase()}`, b: '', c: '', d: '', e: '' },
+        { row: 2, type: 'blank', a: '', b: '', c: '', d: '', e: '' },
+        { row: 3, type: 'section', a: '1. CALENDAR & NETWORKDAYS ENGINE (SHEET FORMULAS)', b: 'Values / Date', c: 'Unit', d: '', e: 'Description' },
+        { row: 4, type: 'data', a: 'Start of Year Date', b: '2025-04-07', c: 'Date', d: '', e: 'Reference Start of Fiscal Year (4/7/2025)', f_b: '4/7/2025' },
+        { row: 5, type: 'data', a: 'Current Date', b: '2026-10-15', c: 'Date', d: '', e: 'Active Work Day (10/15/2026)', f_b: '10/15/2026' },
+        { row: 6, type: 'data', a: 'End of Period Date', b: '2026-11-06', c: 'Date', d: '', e: 'Fiscal Period Cutoff Date', f_b: '11/6/2026' },
+        { row: 7, type: 'formula', a: 'Total Work Days', b: '=NETWORKDAYS(B4, B5)', c: 'Work Days', d: 'NETWORKDAYS(Start, Current)', e: 'Total weekdays worked to date', exp_b: 'Counts Mon-Fri between Start and Current date (e.g. 398)' },
+        { row: 8, type: 'formula', a: 'Working Days Left to Call', b: '=NETWORKDAYS(B5, B6)-1', c: 'Work Days', d: 'NETWORKDAYS(Current, End) - 1', e: 'do NOT include last day of period', exp_b: 'Work days remaining strictly excluding the last day' },
+        { row: 9, type: 'blank', a: '', b: '', c: '', d: '', e: '' },
+
+        { row: 10, type: 'section', a: '2. SDR QUOTA & CONVERSION BENCHMARKS', b: 'Input Parameter', c: 'Unit', d: '', e: 'Field Baseline' },
+        { row: 11, type: 'data', a: 'SDR Rep Name & Motion', b: `${repName} (${ROLE_PROFILES[currentRole].title})`, c: 'Text', d: '', e: 'Sales Development Representative', f_b: `${repName} (${ROLE_PROFILES[currentRole].title})` },
+        { row: 12, type: 'data', a: 'SQO Quota for Current Period', b: sqoQuota, c: 'SQOs', d: '', e: 'Target Sales Qualified Opportunities', f_b: sqoQuota },
+        { row: 13, type: 'data', a: 'Current SQO Count', b: currentSQOs, c: 'SQOs', d: '', e: 'Completed SQOs logged in Salesforce', f_b: currentSQOs },
+        { row: 14, type: 'data', a: 'SAOs Waiting to Happen This Period', b: saosWaiting, c: 'SAOs', d: '', e: 'Discovery calls scheduled on calendar', f_b: saosWaiting },
+        { row: 15, type: 'data', a: 'SAO > SQO Rate (SQO Conv Rate)', b: rateSAOtoSQO, c: '% Conv', d: '', e: `Benchmark for ${ROLE_PROFILES[currentRole].title}: ${(rateSAOtoSQO * 100).toFixed(1)}%`, f_b: `${(rateSAOtoSQO * 100).toFixed(1)}%` },
+        { row: 16, type: 'data', a: 'Engagement Rate (Pickup %)', b: rateEngagement, c: '% Dials', d: '', e: `Benchmark for ${ROLE_PROFILES[currentRole].title}: ${(rateEngagement * 100).toFixed(1)}%`, f_b: `${(rateEngagement * 100).toFixed(1)}%` },
+        { row: 17, type: 'data', a: 'Lead Qualification Rate', b: rateLeadQual, c: '% Engaged', d: '', e: `Benchmark for ${ROLE_PROFILES[currentRole].title}: ${(rateLeadQual * 100).toFixed(1)}%`, f_b: `${(rateLeadQual * 100).toFixed(1)}%` },
+        { row: 18, type: 'data', a: 'Average ACV per Opp ($)', b: acv, c: 'USD', d: '', e: 'Trimble SMB Benchmark ($5,869)', f_b: acv },
+        { row: 19, type: 'blank', a: '', b: '', c: '', d: '', e: '' },
+
+        { row: 20, type: 'section', a: '3. DIAL CALCULATOR ENGINE & WATERFALL', b: 'Formula Output', c: 'Unit', d: 'Calculation Logic', e: 'Operational Formula' },
+        { row: 21, type: 'formula', a: 'Expected SQOs from Waiting SAOs', b: '=B14*B15', c: 'SQOs', d: 'Waiting SAOs * SAO>SQO Rate', e: 'SQOs secured from existing pipeline', exp_b: 'Pending discovery calls times SQO show & qualify rate' },
+        { row: 22, type: 'formula', a: 'SQOs Remaining (Net)', b: '=MAX(0, (B12-B13)-B21)', c: 'SQOs', d: 'Quota - Current SQO - Expected Pending', e: 'Net SQO gap that must be created by calls', exp_b: 'Zero if achieved, else remaining SQOs to source' },
+        { row: 23, type: 'formula', a: 'Activities / SAO', b: '=1/(B16*B17)', c: 'Calls / SAO', d: '1 / (Engagement Rate * Lead Qual Rate)', e: 'Total dials required to book 1 SAO', exp_b: 'Inverse of conversion funnel product' },
+        { row: 24, type: 'formula', a: 'Activities / SQO', b: '=B23/B15', c: 'Calls / SQO', d: 'Activities per SAO / SAO>SQO Rate', e: 'Total dials required to produce 1 SQO', exp_b: 'Activities per SAO divided by SAO>SQO Rate' },
+        { row: 25, type: 'formula', a: 'Total Calls Needed to Bridge Gap', b: '=B22*B24', c: 'Calls', d: 'SQOs Remaining * Activities per SQO', e: 'Total outbound dials needed this period', exp_b: 'Net SQOs Remaining multiplied by Activities per SQO' },
+        { row: 26, type: 'formula', a: 'Number of Calls Needed per Day', b: '=ROUNDUP(B25/B8, 0)', c: 'Calls / Day', d: 'Total Calls Needed / Calling Days Left', e: 'Mandatory daily calling target to hit quota', exp_b: 'Total calls divided by working days left (excl last day)' },
+        { row: 27, type: 'blank', a: '', b: '', c: '', d: '', e: '' },
+
+        { row: 28, type: 'section', a: '4. COMPARATIVE MATRIX: CURRENT AVG VS PROJECTED', b: 'Current Average', c: 'Projected Output', d: 'Delta / Variance', e: 'Management Evaluation' },
+        { row: 29, type: 'formula', a: 'Calls/day average', b: editCallsDay, c: '=B26', d: '=C29-B29', e: 'Current dial average vs Required target', exp_b: 'Projected daily calls needed to close gap' },
+        { row: 30, type: 'formula', a: 'Engagement rate', b: '=B16', c: '=B16', d: '0.0%', e: 'Pickup rate benchmark', exp_b: 'Engagement rate %' },
+        { row: 31, type: 'formula', a: 'Lead qual rate %', b: '=B17', c: '=B17', d: '0.0%', e: 'Pitch to SAO qualification rate', exp_b: 'Lead qual rate %' },
+        { row: 32, type: 'formula', a: 'Activities / SAO', b: '=B23', c: '=B23', d: '0.0', e: 'Dial efficiency per discovery set', exp_b: 'Activities per SAO' },
+        { row: 33, type: 'formula', a: 'Activities / SQO', b: '=B24', c: '=B24', d: '0.0', e: 'Dial efficiency per discovery qualified', exp_b: 'Activities per SQO' },
+        { row: 34, type: 'formula', a: 'SQO Conv rate', b: '=B15', c: '=B15', d: '0.0%', e: 'SAO to SQO conversion rate', exp_b: 'SQO Conv rate' },
+        { row: 35, type: 'formula', a: 'Avrg Pipe / Opp', b: '=B18', c: '=B18', d: '$0', e: 'Average deal ACV benchmark', exp_b: 'ACV' },
+        { row: 36, type: 'formula', a: 'Closed Won (Pipe Sourced)', b: '=B13*B18', c: '=B12*B18', d: '=C36-B36', e: 'Current sourced pipe vs Quota target value', exp_b: 'Actual vs Target total pipeline value' }
+      ];
+    }
+
+    function renderGoogleSheetsGrid() {
+      const rows = getGoogleSheetsModel();
+      const tbody = document.getElementById('sheetsGridBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-blue-50/50 transition-colors cursor-pointer group';
+
+        if (r.type === 'header') {
+          tr.className = 'bg-trimble-navy text-white font-bold font-sans text-xs';
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 text-center border-r border-slate-700 font-mono text-[10px] text-slate-400">${r.row}</td>
+            <td colspan="5" class="py-2.5 px-3.5 tracking-wider text-amber-400">${r.a}</td>
+          `;
+        } else if (r.type === 'section') {
+          tr.className = 'bg-slate-100 font-bold font-sans text-[11px] text-slate-800 border-t-2 border-slate-200';
+          tr.innerHTML = `
+            <td class="py-2 px-3 text-center border-r border-slate-200 font-mono text-[10px] text-slate-400">${r.row}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 text-trimble-blue">${r.a}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 text-slate-600">${r.b}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 text-slate-600">${r.c}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 text-slate-600">${r.d}</td>
+            <td class="py-2 px-3.5 text-slate-600">${r.e}</td>
+          `;
+        } else if (r.type === 'blank') {
+          tr.className = 'bg-slate-50/50 h-5';
+          tr.innerHTML = `
+            <td class="py-1 px-3 text-center border-r border-slate-200 font-mono text-[10px] text-slate-300">${r.row}</td>
+            <td colspan="5" class="py-1 px-3.5"></td>
+          `;
+        } else {
+          const displayB = typeof r.b === 'string' && r.b.startsWith('=') 
+            ? `<span class="text-trimble-blue font-bold">${r.b}</span>`
+            : (typeof r.b === 'number' ? (r.c === 'USD' ? fmtUSD(r.b) : (r.c === '% Conv' || r.c === '% Dials' || r.c === '% Engaged' ? `${Math.round(r.b*100)}%` : r.b)) : (r.f_b || r.b));
+
+          const displayC = typeof r.c === 'string' && r.c.startsWith('=')
+            ? `<span class="text-trimble-blue font-bold">${r.c}</span>`
+            : (r.f_c || r.c);
+
+          const displayD = typeof r.d === 'string' && r.d.startsWith('=')
+            ? `<span class="text-trimble-blue font-bold">${r.d}</span>`
+            : r.d;
+
+          const displayE = typeof r.e === 'string' && r.e.startsWith('=')
+            ? `<span class="text-trimble-blue font-bold">${r.e}</span>`
+            : r.e;
+
+          tr.innerHTML = `
+            <td class="py-2 px-3 text-center border-r border-slate-200 font-mono text-[10px] text-slate-400 group-hover:text-trimble-blue bg-slate-50/60">${r.row}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 font-sans font-medium text-slate-900" data-cell="A${r.row}" data-formula="${r.a}">${r.a}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 font-mono" data-cell="B${r.row}" data-formula="${r.b}" data-desc="${r.exp_b || r.e || ''}">${displayB}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 font-sans text-slate-600" data-cell="C${r.row}" data-formula="${r.c}">${displayC}</td>
+            <td class="py-2 px-3.5 border-r border-slate-200 font-mono text-slate-700" data-cell="D${r.row}" data-formula="${r.d}" data-desc="${r.exp_d || ''}">${displayD}</td>
+            <td class="py-2 px-3.5 font-sans text-slate-500 text-[11px]" data-cell="E${r.row}" data-formula="${r.e}">${displayE}</td>
+          `;
+
+          tr.querySelectorAll('td[data-cell]').forEach(td => {
+            td.addEventListener('click', () => {
+              const cell = td.dataset.cell;
+              const formula = td.dataset.formula || td.textContent;
+              const desc = td.dataset.desc || '';
+              document.getElementById('formulaCellAddress').textContent = cell;
+              document.getElementById('formulaBarContent').textContent = formula;
+              const badge = document.getElementById('formulaExplanationBadge');
+              if (desc) {
+                badge.textContent = desc;
+                badge.classList.remove('hidden');
+              } else {
+                badge.classList.add('hidden');
+              }
+              document.querySelectorAll('#sheetsGridTable td').forEach(el => el.classList.remove('bg-blue-100/70', 'ring-1', 'ring-trimble-blue'));
+              td.classList.add('bg-blue-100/70', 'ring-1', 'ring-trimble-blue');
+            });
+          });
+        }
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    function generateGoogleSheetsTSV() {
+      const rows = getGoogleSheetsModel();
+      return rows.map(r => {
+        if (r.type === 'blank') return '\t\t\t\t';
+        if (r.type === 'header') return `${r.a}\t\t\t\t`;
+        const valB = typeof r.b !== 'undefined' ? r.b : '';
+        const valC = typeof r.c !== 'undefined' ? r.c : '';
+        const valD = typeof r.d !== 'undefined' ? r.d : '';
+        const valE = typeof r.e !== 'undefined' ? r.e : '';
+        return `${r.a}\t${valB}\t${valC}\t${valD}\t${valE}`;
+      }).join('\n');
+    }
+
+    function generateGoogleSheetsCSV() {
+      const rows = getGoogleSheetsModel();
+      return rows.map(r => {
+        if (r.type === 'blank') return ',,,,';
+        const clean = (val) => {
+          if (val === null || typeof val === 'undefined') return '""';
+          const str = String(val).replace(/"/g, '""');
+          return `"${str}"`;
+        };
+        return [clean(r.a), clean(r.b), clean(r.c), clean(r.d), clean(r.e)].join(',');
+      }).join('\r\n');
+    }
+
+    function copyGoogleSheetsClipboard() {
+      const tsv = generateGoogleSheetsTSV();
+      const tempTextArea = document.createElement('textarea');
+      tempTextArea.value = tsv;
+      tempTextArea.style.position = 'fixed';
+      tempTextArea.style.left = '-9999px';
+      document.body.appendChild(tempTextArea);
+      tempTextArea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Google Sheet formulas copied! Open sheets.new and press Ctrl+V.');
+      } catch (err) {
+        showToast('Unable to copy directly. Please check browser permissions.');
+      }
+      document.body.removeChild(tempTextArea);
+    }
+
+    function downloadGoogleSheetsCSV() {
+      const csvData = generateGoogleSheetsCSV();
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `trimble_sdr_sqo_projector_${currentRole}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('SDR CSV downloaded with Trimble Google Sheet formulas!');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      if (!toast || !toastMsg) return;
+      toastMsg.textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3000);
+    }
+
+    function setupSliderInputPair(sliderId, inputId) {
+      const slider = document.getElementById(sliderId);
+      const input = document.getElementById(inputId);
+      if (!slider || !input) return;
+
+      slider.addEventListener('input', () => {
+        input.value = slider.value;
+        calculateAndRenderSDR();
+      });
+
+      input.addEventListener('input', () => {
+        slider.value = input.value;
+        calculateAndRenderSDR();
+      });
+    }
+
+    setupSliderInputPair('sliderRateSAOtoSQO', 'inputRateSAOtoSQO');
+    setupSliderInputPair('sliderRateEngagement', 'inputRateEngagement');
+    setupSliderInputPair('sliderRateLeadQual', 'inputRateLeadQual');
+
+    function setSDRRole(roleKey) {
+      currentRole = roleKey;
+      const profile = ROLE_PROFILES[roleKey];
+      if (!profile) return;
+
+      // Update button visual styles
+      ['btnRoleOutbound', 'btnRoleInbound', 'btnRoleCustomer'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.className = 'p-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex flex-col items-center';
+      });
+
+      const activeId = roleKey === 'outbound' ? 'btnRoleOutbound' : (roleKey === 'inbound' ? 'btnRoleInbound' : 'btnRoleCustomer');
+      const activeBtn = document.getElementById(activeId);
+      if (activeBtn) {
+        activeBtn.className = 'p-2 rounded-xl text-xs font-bold border-2 border-trimble-blue bg-trimble-pale text-trimble-navy transition-all shadow-xs flex flex-col items-center';
+      }
+
+      // Apply benchmark values to core inputs
+      document.getElementById('inputSQOQuota').value = profile.quota;
+      document.getElementById('inputRateEngagement').value = profile.engagement.toFixed(1);
+      document.getElementById('sliderRateEngagement').value = profile.engagement;
+      document.getElementById('inputRateLeadQual').value = profile.leadQual.toFixed(1);
+      document.getElementById('sliderRateLeadQual').value = profile.leadQual;
+      document.getElementById('inputRateSAOtoSQO').value = profile.saoToSqo.toFixed(1);
+      document.getElementById('sliderRateSAOtoSQO').value = profile.saoToSqo;
+
+      // Update badge and header text
+      document.getElementById('roleBenchmarkBadge').textContent = profile.badge;
+      document.getElementById('roleHeaderIndicator').innerHTML = `Active Role: <strong class="text-slate-800 font-bold">${profile.title}</strong> (${profile.engagement}% Connect &bull; ${profile.leadQual}% Qual &bull; ${profile.saoToSqo}% SQO Conv)`;
+
+      // Update editable Current Average table with role standards
+      document.getElementById('editCurrCallsDay').value = profile.currentCallsDay;
+      document.getElementById('editCurrEngagement').value = profile.engagement.toFixed(1);
+      document.getElementById('editCurrLeadQual').value = profile.leadQual.toFixed(1);
+      document.getElementById('editCurrSQOConv').value = profile.saoToSqo.toFixed(1);
+
+      calculateAndRenderSDR();
+      showToast(`Applied ${profile.title} Benchmarks (${profile.engagement}% Connect | ${profile.leadQual}% Qual | ${profile.saoToSqo}% SQO Conv)`);
+    }
+
+    document.getElementById('btnRoleOutbound').addEventListener('click', () => setSDRRole('outbound'));
+    document.getElementById('btnRoleInbound').addEventListener('click', () => setSDRRole('inbound'));
+    document.getElementById('btnRoleCustomer').addEventListener('click', () => setSDRRole('customer'));
+
+    // Sync Current Average with Projected/Core Inputs
+    document.getElementById('btnSyncCurrentWithProjected').addEventListener('click', () => {
+      document.getElementById('editCurrEngagement').value = document.getElementById('inputRateEngagement').value;
+      document.getElementById('editCurrLeadQual').value = document.getElementById('inputRateLeadQual').value;
+      document.getElementById('editCurrSQOConv').value = document.getElementById('inputRateSAOtoSQO').value;
+      document.getElementById('editCurrAvgPipe').value = document.getElementById('inputACV').value;
+      calculateAndRenderSDR();
+      showToast('Synced conversion benchmarks to Current Average matrix.');
+    });
+
+    document.getElementById('presetBehindBtn').addEventListener('click', () => {
+      document.getElementById('inputSQOQuota').value = 18;
+      document.getElementById('inputCurrentSQOCount').value = 3;
+      document.getElementById('inputSAOsWaiting').value = 3;
+      document.getElementById('inputCallingDaysLeft').value = 8;
+      document.getElementById('editCurrCallsDay').value = 40;
+      calculateAndRenderSDR();
+      showToast('Loaded deficit scenario (18 Quota, 3 Current, 8 Calling Days Left)');
+    });
+
+    document.getElementById('presetAheadBtn').addEventListener('click', () => {
+      document.getElementById('inputSQOQuota').value = 16;
+      document.getElementById('inputCurrentSQOCount').value = 12;
+      document.getElementById('inputSAOsWaiting').value = 6;
+      document.getElementById('inputCallingDaysLeft').value = 14;
+      document.getElementById('editCurrCallsDay').value = 52;
+      calculateAndRenderSDR();
+      showToast('Loaded ahead-of-pace scenario (16 Quota, 12 Current, 6 Waiting SAOs)');
+    });
+
+    document.getElementById('resetDefaultsBtn').addEventListener('click', () => {
+      document.getElementById('inputRepName').value = 'Jordan Taylor';
+      document.getElementById('inputCallingDaysLeft').value = 15;
+      document.getElementById('inputCurrentSQOCount').value = 4;
+      document.getElementById('inputSAOsWaiting').value = 5;
+      document.getElementById('inputACV').value = 5869;
+      document.getElementById('editCurrAvgPipe').value = 5869;
+      setSDRRole('outbound');
+      showToast('Reset to Outbound SDR benchmarks (70% SAO>SQO, 5% Connect, 18% Qual)');
+    });
+
+    // Copy 1:1 Plan
+    document.getElementById('exportPlanBtn').addEventListener('click', () => {
+      const rep = document.getElementById('inputRepName').value || 'Jordan Taylor';
+      const quota = document.getElementById('inputSQOQuota').value || 16;
+      const current = document.getElementById('inputCurrentSQOCount').value || 4;
+      const waiting = document.getElementById('inputSAOsWaiting').value || 5;
+      const callingDays = document.getElementById('inputCallingDaysLeft').value || 15;
+      const gap = document.getElementById('cardSQOsRemaining').textContent;
+      const callsPerDay = document.getElementById('cardCallsPerDay').textContent;
+      const actPerSQO = document.getElementById('cardActivitiesPerSQO').textContent;
+      const roleTitle = ROLE_PROFILES[currentRole].title;
+
+      const summary = `Trimble SDR SQO Projector Plan for ${rep} (${roleTitle})
+- SQO Quota: ${quota} | Current SQO Count: ${current}
+- SAOs Waiting to Happen: ${waiting}
+- Working Days Left to Call (excl. last day): ${callingDays}
+- Net SQOs Remaining: ${gap}
+- Activities / SQO: ${actPerSQO}
+- Mandatory Cadence: ${callsPerDay}`;
+
+      const tempTextArea = document.createElement('textarea');
+      tempTextArea.value = summary;
+      tempTextArea.style.position = 'fixed';
+      tempTextArea.style.left = '-9999px';
+      document.body.appendChild(tempTextArea);
+      tempTextArea.select();
+      try {
+        document.execCommand('copy');
+        showToast('SDR 1:1 Plan copied to clipboard!');
+      } catch (e) {
+        showToast('Unable to copy summary.');
+      }
+      document.body.removeChild(tempTextArea);
+    });
+
+    document.getElementById('tabSimulatorBtn').addEventListener('click', () => {
+      document.getElementById('simulatorView').classList.remove('hidden');
+      document.getElementById('sheetsView').classList.add('hidden');
+      document.getElementById('tabSimulatorBtn').className = 'px-4 py-2 text-xs font-bold rounded-xl bg-trimble-blue text-white shadow-sm flex items-center space-x-2 transition-all';
+      document.getElementById('tabSheetsBtn').className = 'px-4 py-2 text-xs font-bold rounded-xl bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-xs flex items-center space-x-2 transition-all';
+    });
+
+    document.getElementById('tabSheetsBtn').addEventListener('click', () => {
+      document.getElementById('simulatorView').classList.add('hidden');
+      document.getElementById('sheetsView').classList.remove('hidden');
+      document.getElementById('tabSheetsBtn').className = 'px-4 py-2 text-xs font-bold rounded-xl bg-trimble-green text-white shadow-xs flex items-center space-x-2 transition-all';
+      document.getElementById('tabSimulatorBtn').className = 'px-4 py-2 text-xs font-bold rounded-xl bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-xs flex items-center space-x-2 transition-all';
+      renderGoogleSheetsGrid();
+    });
+
+    document.getElementById('copyToSheetsBtn').addEventListener('click', copyGoogleSheetsClipboard);
+    document.getElementById('copySheetDirectBtn').addEventListener('click', copyGoogleSheetsClipboard);
+    document.getElementById('downloadCsvBtn').addEventListener('click', downloadGoogleSheetsCSV);
+
+    // Dynamic input change listeners for core inputs
+    [
+      'inputCallingDaysLeft', 'inputRepName', 'inputSQOQuota', 
+      'inputCurrentSQOCount', 'inputSAOsWaiting', 'inputACV',
+      'inputRateSAOtoSQO', 'inputRateEngagement', 'inputRateLeadQual'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', calculateAndRenderSDR);
+        el.addEventListener('change', calculateAndRenderSDR);
+      }
+    });
+
+    // Dynamic change listeners for editable Current Average table
+    [
+      'editCurrCallsDay', 'editCurrEngagement', 
+      'editCurrLeadQual', 'editCurrSQOConv', 'editCurrAvgPipe'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', calculateAndRenderSDR);
+        el.addEventListener('change', calculateAndRenderSDR);
+      }
+    });
+
+    // Window Load Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      calculateAndRenderSDR();
+    });
+  </script>
+</body>
+</html>
